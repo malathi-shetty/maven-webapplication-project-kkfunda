@@ -46,7 +46,7 @@
 <body>
 
 <header>
-    <h1>🚀 Welcome to KK FUNDA DEVOPS DEVSECOPS SRE NEW BATCH ON OCT 26 10:30 AM IST ACTUAL CLASSES TIMINGS IS 6:45 AM to 8:45 AM IST Portal 🚀</h1>
+    <h1>🚀 Welcome to KK FUNDA DEVOPS DEVSECOPS SRE NEW BATCH ON OCT 26 10:30 AM IST ACTUAL CLASSES TIMINGS IS 6:45 AM to 8:45 AM IST Portal http://kkfunda.com 🚀</h1>
     <h3>Training | Development | Consulting</h3>
 </header>
 
