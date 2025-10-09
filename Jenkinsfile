@@ -12,7 +12,7 @@ node
     try
     {
        
-
+notifyBuild('STARTED')
   stage('git checkout')
   {
     git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
