@@ -11,8 +11,7 @@ node
    
     try
     {
-      node 
-
+       
 
   stage('git checkout')
   {
@@ -81,5 +80,7 @@ def notifyBuild(String buildStatus = 'STARTED') {
     colorCode = '#FF0000'
   }
 
- 
+  // Send notifications
+  slackSend (color: colorCode, message: summary, channel: '#jio-devteam')
+  slackSend (color: colorCode, message: summary, channel: '#jio-devops')
 }
