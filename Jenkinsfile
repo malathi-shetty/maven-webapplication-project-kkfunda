@@ -21,11 +21,11 @@ notifyBuild('STARTED')
   {
     sh "${mavenHome}/bin/mvn clean package"
   }
- /* stage('SonarQube Report')
+ stage('SonarQube Report')
   {
     sh "${mavenHome}/bin/mvn sonar:sonar"
   }
-  */
+  
   stage('Deploy into Nexus')
   {
     sh "${mavenHome}/bin/mvn deploy"
@@ -82,6 +82,7 @@ def notifyBuild(String buildStatus = 'STARTED') {
   }
 
   // Send notifications
-  slackSend (color: colorCode, message: summary, channel: '#jio-devteamlearning')
-  slackSend (color: colorCode, message: summary, channel: '#jio-projectlearning')
+    slackSend (color: colorCode, message: summary)
+//  slackSend (color: colorCode, message: summary, channel: '#jio-devteamlearning')
+//  slackSend (color: colorCode, message: summary, channel: '#jio-projectlearning')
 }
