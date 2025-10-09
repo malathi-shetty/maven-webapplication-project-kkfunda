@@ -25,7 +25,7 @@ node
       sh """
       curl -u kk:password \
 --upload-file /var/lib/jenkins/workspace/jio-dev-scriptedway-pipeline/target/maven-web-application.war \
-"http://3.7.45.103:8080//manager/text/deploy?path=/maven-web-application&update=true"
+"http://3.110.189.48:8080//manager/text/deploy?path=/maven-web-application&update=true"
           
         """
     }
