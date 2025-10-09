@@ -21,10 +21,11 @@ notifyBuild('STARTED')
   {
     sh "${mavenHome}/bin/mvn clean package"
   }
-  stage('SonarQube Report')
+ /* stage('SonarQube Report')
   {
     sh "${mavenHome}/bin/mvn sonar:sonar"
   }
+  */
   stage('Deploy into Nexus')
   {
     sh "${mavenHome}/bin/mvn deploy"
