@@ -13,8 +13,7 @@ node
     {
       node 
 {
-// /var/lib/jenkins/tools/hudson.tasks.Maven_MavenInstallation/maven-3.9.6/bin/
-  def mavenHome=tool name: "maven-3.9.6"
+
   stage('git checkout')
   {
     git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
