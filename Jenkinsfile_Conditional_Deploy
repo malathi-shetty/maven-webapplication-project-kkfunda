@@ -61,29 +61,30 @@ pipeline {
             }
         }
 
-stage('Deployment Approval to Tomcat') {
-    steps {
-        script {
-            currentBuild.description = "Deployment Approval Pending ⏸️"
-            notifyDeployment(
-                "Deployment Approval Required!\nJob: ${env.JOB_NAME} [${env.BUILD_NUMBER}]\nURL: ${env.BUILD_URL}\nPlease confirm within 100 seconds to deploy to Tomcat.",
-                "WAITING"
-            )
+        stage('Deployment Approval to Tomcat') {
+            steps {
+                script {
+                    currentBuild.description = "Deployment Approval Pending ⏸️"
+                    notifyDeployment(
+                        "Deployment Approval Required!\nJob: ${env.JOB_NAME} [${env.BUILD_NUMBER}]\nURL: ${env.BUILD_URL}\nPlease confirm within 100 seconds to deploy to Tomcat.",
+                        "WAITING"
+                    )
 
-            try {
-                timeout(time: 100, unit: 'SECONDS') {
-                    // Parallel thread for warning at 60 seconds
-                    parallel(
-                        'Approval Warning': {
-                            sleep 60
-                            notifyDeployment("⚠️ 40 seconds passed. 60 seconds remaining to approve deployment for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}].", "WAITING")
-                        },
-                        'Approval Input': {
+                    try {
+                        timeout(time: 100, unit: 'SECONDS') {
+
+                            // Warning at 60 seconds in a separate thread
+                            Thread.start {
+                                sleep(60 * 1000)  // 60 seconds
+                                notifyDeployment("⚠️ 60 seconds elapsed, 40 seconds remaining to approve deployment for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}].", "WAITING")
+                            }
+
+                            // Input step (main thread)
                             def deployDecisionMap = input(
                                 id: 'DeploymentApproval',
                                 message: 'Do you approve deployment to Tomcat?',
                                 ok: 'Deploy',
-                                submitter: 'malathi,deepak,prasad,abhilash',
+                                submitter: 'malathi,deepak,prasad,abhilash', // self-approval allowed
                                 submitterParameter: 'APPROVER',
                                 parameters: [
                                     [$class: 'ChoiceParameterDefinition', choices: 'Approve\nReject', name: 'DEPLOY_DECISION']
@@ -117,25 +118,23 @@ stage('Deployment Approval to Tomcat') {
                                 error("Deployment rejected by ${approver}")
                             }
                         }
-                    )
+                    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+                        // Timeout or user abort
+                        def cause = e.getCauses()[0]
+                        if (cause instanceof org.jenkinsci.plugins.workflow.steps.TimeoutStepExecution.ExceededTimeout) {
+                            echo "Deployment approval timed out ⏰"
+                            currentBuild.description = "Deployment Aborted due to timeout ⚠️"
+                            notifyDeployment("Deployment Aborted! No approval received within 100 seconds.", "ABORTED")
+                        } else {
+                            echo "Deployment aborted by user ✋"
+                            currentBuild.description = "Deployment Aborted by user ✋"
+                            notifyDeployment("Deployment Aborted by user.", "ABORTED")
+                        }
+                        error("Deployment aborted")
+                    }
                 }
-            } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-                // Handle timeout or user abort
-                def cause = e.getCauses()[0]
-                if (cause instanceof org.jenkinsci.plugins.workflow.steps.TimeoutStepExecution.ExceededTimeout) {
-                    echo "Deployment approval timed out ⏰"
-                    currentBuild.description = "Deployment Aborted due to timeout ⚠️"
-                    notifyDeployment("Deployment Aborted! No approval received within 100 seconds.", "ABORTED")
-                } else {
-                    echo "Deployment aborted by user ✋"
-                    currentBuild.description = "Deployment Aborted by user ✋"
-                    notifyDeployment("Deployment Aborted by user.", "ABORTED")
-                }
-                error("Deployment aborted")
             }
         }
-    }
-}
 
     }
 
@@ -156,12 +155,12 @@ stage('Deployment Approval to Tomcat') {
 // 🔹 Slack Notification Function for Overall Build Status
 def notifyBuild(String buildStatus = 'STARTED', String message = '') {
     buildStatus = buildStatus ?: 'SUCCESS'
-    def colorCode = '#FFD700'  // Yellow for STARTED
+    def colorCode = '#FFD700'
 
-    if (buildStatus == 'SUCCESS') colorCode = '#00FF00'   // Green
-    else if (buildStatus == 'FAILURE') colorCode = '#FF0000'   // Red
-    else if (buildStatus == 'ABORTED') colorCode = '#FF8C00'   // Dark Orange
-    else if (buildStatus == 'STARTED') colorCode = '#FF1493'   // Dark Pink
+    if (buildStatus == 'SUCCESS') colorCode = '#00FF00'
+    else if (buildStatus == 'FAILURE') colorCode = '#FF0000'
+    else if (buildStatus == 'ABORTED') colorCode = '#FF8C00'
+    else if (buildStatus == 'STARTED') colorCode = '#FF1493'
 
     def summary = message ?: "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
     slackSend(color: colorCode, message: summary, channel: '#jio-devteamlearning')
@@ -169,16 +168,16 @@ def notifyBuild(String buildStatus = 'STARTED', String message = '') {
 
 // 🔹 Slack Notification for Each Stage
 def notifyStage(String stageMessage) {
-    def colorHex = '#FF1493' // Dark Pink
+    def colorHex = '#FF1493'
     slackSend(color: colorHex, message: "Stage Update: ${stageMessage}", channel: '#jio-devteamlearning')
 }
 
 // 🔹 Slack Notification for Deployment Approval/Result
 def notifyDeployment(String message, String type) {
-    def colorHex = '#8B4513' // Dark Brown for waiting
-    if (type == 'APPROVED') colorHex = '#1E90FF'   // Blue
-    else if (type == 'REJECTED') colorHex = '#800080' // Purple
-    else if (type == 'ABORTED') colorHex = '#FF8C00'  // Dark Orange
+    def colorHex = '#8B4513'
+    if (type == 'APPROVED') colorHex = '#1E90FF'
+    else if (type == 'REJECTED') colorHex = '#800080'
+    else if (type == 'ABORTED') colorHex = '#FF8C00'
 
     slackSend(color: colorHex, message: message, channel: '#jio-devteamlearning')
 }
