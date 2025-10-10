@@ -168,7 +168,7 @@ def notifyStage(String stageMessage) {
 // 🔹 Slack Notification for Deployment Approval/Result
 def notifyDeployment(String message, String type) {
     def colorHex = '#8B4513' // Dark Brown for waiting
-    if (type == 'APPROVED') colorHex = '#1E90FF'   // Blue
+    if (type == 'APPROVED') colorHex = '#1efff4'   // Blue
     else if (type == 'REJECTED') colorHex = '#800080' // Purple
     else if (type == 'ABORTED') colorHex = '#FF8C00'  // Dark Orange
 
