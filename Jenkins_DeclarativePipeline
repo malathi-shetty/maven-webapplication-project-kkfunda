@@ -10,7 +10,7 @@ pipeline {
         {
           steps
           {
-             git branch: 'development', url: 'https://github.com/kkdevopsb6/maven-webapplication-project-kkfunda.git'
+             git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
           }
         } //stage  close
         stage('build')
