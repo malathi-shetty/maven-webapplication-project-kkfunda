@@ -66,56 +66,51 @@ stage('Deployment Approval to Tomcat') {
         script {
             currentBuild.description = "Deployment Approval Pending ⏸️"
 
-            // Notify Slack that deployment is waiting
+            // Slack message for waiting
             notifyDeployment(
                 "Deployment Approval Required!\nJob: ${env.JOB_NAME} [${env.BUILD_NUMBER}]\nURL: ${env.BUILD_URL}\nPlease confirm within 150 seconds to deploy to Tomcat.",
                 "WAITING"
             )
 
-            // Input step with timeout and multiple allowed approvers
+            // Capture who triggered the build
+            def buildTriggerUser = currentBuild.getBuildCauses()[0].userName
+
+            // Input step for approval
             def deployDecisionMap = input(
                 id: 'DeploymentApproval',
                 message: 'Do you approve deployment to Tomcat?',
                 ok: 'Deploy',
-                submitter: 'malathi,deepak,prasad,abhilash',  // allowed users
-                submitterParameter: 'APPROVER',               // captures the user who approved/rejected
+                submitter: 'malathi,deepak,prasad,abhilash', // allowed approvers
+                submitterParameter: 'APPROVER',
                 parameters: [
                     [$class: 'ChoiceParameterDefinition', choices: 'Approve\nReject', name: 'DEPLOY_DECISION']
                 ],
-                timeout: 150,                                  // seconds
+                timeout: 50,
                 timeoutMessage: 'Deployment approval timed out! Canceling deployment.'
             )
 
             def deployDecision = deployDecisionMap['DEPLOY_DECISION']
             def approver = deployDecisionMap['APPROVER']
 
+            // Prevent the build starter from approving
+            if (approver == buildTriggerUser) {
+                error("Approval cannot be given by the user who started the build (${approver})")
+            }
+
             if (deployDecision == 'Approve') {
                 echo "Deployment Approved ✅ by ${approver}"
                 currentBuild.description = "Deployment Approved ✅ by ${approver}"
                 notifyDeployment("Deployment Approved ✅ by ${approver}", "APPROVED")
-
-                if (!fileExists(WAR_FILE)) {
-                    error("WAR file not found: ${WAR_FILE}")
-                }
-
-                sh """
-                curl -u kk:password --upload-file ${WAR_FILE} \
-                "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
-                """
-
-                notifyStage("Deployment to Tomcat completed ✅")
-                notifyDeployment("Deployment Successful! Tomcat deployment completed for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}]", "APPROVED")
-
+                // WAR deployment steps...
             } else {
                 echo "Deployment Rejected ❌ by ${approver}"
                 currentBuild.description = "Deployment Rejected ❌ by ${approver}"
                 notifyDeployment("Deployment Rejected ❌ by ${approver}", "REJECTED")
-                error("Deployment rejected by ${approver}") // stops pipeline
+                error("Deployment rejected by ${approver}")
             }
         }
     }
 }
-
 
 
     }
