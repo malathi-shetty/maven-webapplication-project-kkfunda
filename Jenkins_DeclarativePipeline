@@ -6,10 +6,12 @@ pipeline {
     }
      stages
      {
+ 
         stage('git checkout')
         {
           steps
           {
+notifyBuild('STARTED')
              git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
           }
         } //stage  close
