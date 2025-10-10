@@ -4,8 +4,8 @@ node {
   // 🔹 Automatic triggers
   properties([
     pipelineTriggers([
-      pollSCM('* * * * *'),   // Polls GitHub every 2 minutes for changes
-      // githubPush(),           // OR use this if you configured GitHub webhook
+      pollSCM('* * * * *')   // Polls GitHub every 2 minutes for changes
+      // githubPush()          // OR use this if you configured GitHub webhook
       // cron('H 2 * * *')       // Optional: schedule it daily at 2 AM
     ])
   ])
