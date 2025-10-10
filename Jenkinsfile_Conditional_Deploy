@@ -2,37 +2,40 @@
 pipeline {
     agent any
 
-
-  // echo "git branch name: ${env.BRANCH_NAME}"
-  echo "build number is: ${env.BUILD_NUMBER}"
-  echo "node name is: ${env.NODE_NAME}"
-
-  def mavenHome = tool name: "maven-3.9.6"
-
-  try {
-
-    stage('Git Checkout') {
-      notifyBuild('STARTED')
-      git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
-      echo "Git branch: ${env.BRANCH_NAME}"
+    environment {
+        MAVEN_HOME = tool name: "maven-3.9.6"
+        WAR_FILE = "${env.WORKSPACE}/target/maven-web-application.war"
     }
 
-    stage('Maven Compile & Build') {
-       sh "${MAVEN_HOME}/bin/mvn clean compile"
-       sh "${MAVEN_HOME}/bin/mvn clean package"
-    }
+    stages {
+        stage('Git Checkout') {
+            steps {
+                git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
+                echo "Git branch: ${env.BRANCH_NAME}"
+            }
+        }
 
-    stage('SonarQube Report') {
-      sh "${mavenHome}/bin/mvn sonar:sonar"
-    }
+        stage('Maven Compile & Build') {
+            steps {
+                sh "${MAVEN_HOME}/bin/mvn clean compile"
+                sh "${MAVEN_HOME}/bin/mvn clean package"
+            }
+        }
 
-    stage('Upload Artifact to Nexus') {
-      sh "${mavenHome}/bin/mvn clean deploy"
-    }
+        stage('SonarQube Report') {
+            steps {
+                sh "${MAVEN_HOME}/bin/mvn sonar:sonar"
+            }
+        }
 
-    stage('Deployment Approval to Tomcat') {
-       // Ask for approval before deploying
-           steps {
+        stage('Upload Artifact to Nexus') {
+            steps {
+                sh "${MAVEN_HOME}/bin/mvn clean deploy"
+            }
+        }
+
+        stage('Deployment Approval to Tomcat') {
+            steps {
                 script {
                     def deployDecision = input(
                         id: 'DeploymentApproval',
@@ -45,7 +48,7 @@ pipeline {
                     if (deployDecision == 'Approve') {
                         echo "Deployment Approved"
                         currentBuild.description = "Deployment Approved ✅"
-                        
+
                         if (!fileExists(WAR_FILE)) {
                             error("WAR file not found: ${WAR_FILE}")
                         }
@@ -54,54 +57,36 @@ pipeline {
                         curl -u kk:password --upload-file ${WAR_FILE} \
                         "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
                         """
-                        // Slack notification for approved deployment
-                        slackSend(color: '#00FF00', message: "Deployment approved & completed successfully ✅", channel: '#jio-devteamlearning')
+
+                        slackSend(color: '#00FF00', message: "Deployment approved & completed ✅", channel: '#jio-devteamlearning')
 
                     } else {
                         echo "Deployment Rejected"
                         currentBuild.description = "Deployment Rejected ❌"
-                        // Slack notification for rejected deployment
                         slackSend(color: '#FF0000', message: "Deployment rejected by user ❌", channel: '#jio-devteamlearning')
-                        error("Deployment rejected by user") // Marks build as failed or aborted
+                        error("Deployment rejected by user") // stops pipeline
                     }
                 }
             }
         }
     }
 
-  } catch (e) {
-    currentBuild.result = "FAILED"
-  } finally {
-    notifyBuild(currentBuild.result)
-  }
-
-
-post {
+    post {
         always {
-script {
-// 🔹 Slack Notification Function
-def notifyBuild(String buildStatus = 'STARTED') {
-  buildStatus = buildStatus ?: 'SUCCESS'
-
-  def colorCode = '#FF0000'
-  def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
-  def summary = "${subject} (${env.BUILD_URL})"
-
-  if (buildStatus == 'STARTED') {
-    colorCode = '#FFFF00'
-  } else if (buildStatus == 'SUCCESS') {
-    colorCode = '#00FF00'
-  }
-
- def status = currentBuild.currentResult
-                def colorHex = '#FFFF00' // default: yellow
-
-                
+            script {
+                def status = currentBuild.currentResult
+                def colorHex = '#FFFF00' // default yellow
                 if (status == 'SUCCESS') colorHex = '#00FF00'
                 else if (status == 'FAILURE') colorHex = '#FF0000'
                 else if (status == 'ABORTED') colorHex = '#FFA500'
 
-                slackSend(color: colorHex, message: "${status}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})", channel: '#jio-devteamlearning')
+                slackSend(
+                    color: colorHex,
+                    message: "${status}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})",
+                    channel: '#jio-devteamlearning'
+                )
             }
         }
     }
+}
+
