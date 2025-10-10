@@ -5,8 +5,8 @@
  // 🔹 Automatic triggers --> 🔹 Job-level triggers (outside node)
 properties([
     pipelineTriggers([
-        pollSCM('* * * * *')   // Polls GitHub every minute for changes
-        // githubPush()         // Optional: use webhook if configured
+       // pollSCM('* * * * *')   // Polls GitHub every minute for changes
+         githubPush()         // Optional: use webhook if configured
         // cron('H 2 * * *')    // Optional: daily schedule at 2 AM
     ])
 ])
