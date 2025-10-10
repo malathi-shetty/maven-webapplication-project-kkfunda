@@ -6,13 +6,15 @@
 properties([
     pipelineTriggers([
        // pollSCM('* * * * *')   // Polls GitHub every minute for changes
-         githubPush()         // Optional: use webhook if configured
+        // githubPush()         // Optional: use webhook if configured
         // cron('H 2 * * *')    // Optional: daily schedule at 2 AM
+ cron('* * * * *')  // triggers every minute
     ])
 ])
 
 node {
     echo "Polling executed at ${new Date()}"
+echo "Triggered at ${new Date()}"
     echo "git branch name: ${env.BRANCH_NAME}"
     echo "build number is: ${env.BUILD_NUMBER}"
     echo "node name is: ${env.NODE_NAME}"
