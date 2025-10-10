@@ -6,7 +6,7 @@
 	<artifactId>maven-web-application-kkfunda</artifactId>
 	<packaging>war</packaging>
 	<!-- <version>1.0.0</version> -->
-	<version>3.0.0-SNAPSHOT</version>
+	<version>3.1.0-SNAPSHOT</version>
 	<name>maven-web-application</name>
 
 	<description>Maven Web Project for Java Project</description>
@@ -21,7 +21,7 @@
 		<spring.version>5.3.34</spring.version>
 		<junit.version>4.11</junit.version>
 		<log4j.version>1.2.17</log4j.version>
-		<sonar.host.url>http://43.204.228.242:9000/</sonar.host.url>
+		<sonar.host.url>http://13.234.226.241:9000/</sonar.host.url>
 		<sonar.login>admin</sonar.login>
 		<sonar.password>admin123</sonar.password> 
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -95,13 +95,13 @@
 	    <repository>
 	      <id>nexus</id>
 	      <name>KK FUNDA Releases Nexus Repository</name>
-	      <url>http://13.201.194.156:8081/repository/jio-release/</url>
+	      <url>http://13.233.125.190:8081/repository/jio-release/</url>
 	    </repository>
 	    
 	    <snapshotRepository>
 	      <id>nexus</id>
 	      <name>KK FUNDA Snapshot Nexus Repository </name>
-	      <url>http://13.201.194.156:8081/repository/jio-snapshot/</url>
+	      <url>http://13.233.125.190:8081/repository/jio-snapshot/</url>
 	    </snapshotRepository>
 	    
 	</distributionManagement>
