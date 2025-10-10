@@ -1,80 +1,78 @@
 // Today’s task: Add automatic triggers in Groovy script so the build runs automatically without manual start.
 
 
-  // 🔹 Automatic triggers
- properties([
+  
+ // 🔹 Automatic triggers --> 🔹 Job-level triggers (outside node)
+properties([
     pipelineTriggers([
-      pollSCM('* * * * *')   // Polls GitHub every minute for changes
-      // githubPush(),          
-      // cron('H 2 * * *')  
+        pollSCM('* * * * *')   // Polls GitHub every minute for changes
+        // githubPush()         // Optional: use webhook if configured
+        // cron('H 2 * * *')    // Optional: daily schedule at 2 AM
     ])
 ])
+
 node {
-echo "Polling executed at ${new Date()}"
-  echo "git branch name: ${env.BRANCH_NAME}"
-  echo "build number is: ${env.BUILD_NUMBER}"
-  echo "node name is: ${env.NODE_NAME}"
+    echo "Polling executed at ${new Date()}"
+    echo "git branch name: ${env.BRANCH_NAME}"
+    echo "build number is: ${env.BUILD_NUMBER}"
+    echo "node name is: ${env.NODE_NAME}"
 
-  def mavenHome = tool name: "maven-3.9.6"
+    def mavenHome = tool name: "maven-3.9.6"
 
-  try {
+    try {
+        notifyBuild('STARTED')
 
-    stage('Git Checkout') {
-      notifyBuild('STARTED')
-      git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
-    }
-
-    stage('Compile') {
-      sh "${mavenHome}/bin/mvn clean compile"
-    }
-
-    stage('Build') {
-      sh "${mavenHome}/bin/mvn clean package"
-    }
-
-    stage('SonarQube Report') {
-      sh "${mavenHome}/bin/mvn sonar:sonar"
-    }
-
-    stage('Upload Artifact') {
-      sh "${mavenHome}/bin/mvn clean deploy"
-    }
-
-    stage('Deploy to Tomcat') {
- script {
-        def warFile = "${env.WORKSPACE}/target/maven-web-application.war"
-        if (!fileExists(warFile)) {
-            error("WAR file not found: ${warFile}")
+        stage('Git Checkout') {
+            git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
         }
-      sh """
-        curl -u kk:password \
-       --upload-file ${env.WORKSPACE}/target/maven-web-application.war \
-        "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
-      """
+
+        stage('Compile') {
+            sh "${mavenHome}/bin/mvn clean compile"
+        }
+
+        stage('Build') {
+            sh "${mavenHome}/bin/mvn clean package"
+        }
+
+        stage('SonarQube Report') {
+            sh "${mavenHome}/bin/mvn sonar:sonar"
+        }
+
+        stage('Upload Artifact') {
+            sh "${mavenHome}/bin/mvn clean deploy"
+        }
+
+        stage('Deploy to Tomcat') {
+            script {
+                def warFile = "${env.WORKSPACE}/target/maven-web-application.war"
+                if (!fileExists(warFile)) {
+                    error("WAR file not found: ${warFile}")
+                }
+                sh """
+                curl -u kk:password --upload-file ${warFile} \
+                "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
+                """
+            }
+        }
+
+    } catch (e) {
+        currentBuild.result = "FAILED"
+        throw e  // Important: ensures Jenkins marks build as failed
+    } finally {
+        notifyBuild(currentBuild.result)
     }
-
-  } catch (e) {
-    currentBuild.result = "FAILED"
-  } finally {
-    notifyBuild(currentBuild.result)
-  }
-
-} // node ending
-
+}
 
 // 🔹 Slack Notification Function
 def notifyBuild(String buildStatus = 'STARTED') {
-  buildStatus = buildStatus ?: 'SUCCESS'
+    buildStatus = buildStatus ?: 'SUCCESS'
 
-  def colorCode = '#FF0000'
-  def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
-  def summary = "${subject} (${env.BUILD_URL})"
+    def colorCode = '#FF0000'
+    def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
+    def summary = "${subject} (${env.BUILD_URL})"
 
-  if (buildStatus == 'STARTED') {
-    colorCode = '#FFFF00'
-  } else if (buildStatus == 'SUCCESS') {
-    colorCode = '#00FF00'
-  }
+    if (buildStatus == 'STARTED') { colorCode = '#FFFF00' }
+    else if (buildStatus == 'SUCCESS') { colorCode = '#00FF00' }
 
-  slackSend(color: colorCode, message: summary, channel: '#jio-devteamlearning')
+    slackSend(color: colorCode, message: summary, channel: '#jio-devteamlearning')
 }
