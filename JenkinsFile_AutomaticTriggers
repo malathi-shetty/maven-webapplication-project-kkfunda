@@ -26,11 +26,11 @@ node {
             git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
         }
 
-        stage('Compile') {
+        stage('Maven Compile') {
             sh "${mavenHome}/bin/mvn clean compile"
         }
 
-        stage('Build') {
+        stage('Maven Build') {
             sh "${mavenHome}/bin/mvn clean package"
         }
 
@@ -38,7 +38,7 @@ node {
             sh "${mavenHome}/bin/mvn sonar:sonar"
         }
 
-        stage('Upload Artifact') {
+        stage('Upload Artifact to Nexus') {
             sh "${mavenHome}/bin/mvn clean deploy"
         }
 
