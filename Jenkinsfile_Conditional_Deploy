@@ -1,7 +1,9 @@
 // Today’s task: Add automatic triggers in Groovy script so the build runs automatically without manual start.
-node {
+pipeline {
+    agent any
 
-  echo "git branch name: ${env.BRANCH_NAME}"
+
+  // echo "git branch name: ${env.BRANCH_NAME}"
   echo "build number is: ${env.BUILD_NUMBER}"
   echo "node name is: ${env.NODE_NAME}"
 
@@ -12,47 +14,59 @@ node {
     stage('Git Checkout') {
       notifyBuild('STARTED')
       git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
+      echo "Git branch: ${env.BRANCH_NAME}"
     }
 
-    stage('Maven Compile') {
-      sh "${mavenHome}/bin/mvn clean compile"
-    }
-
-    stage('Maven Build') {
-      sh "${mavenHome}/bin/mvn clean package"
+    stage('Maven Compile & Build') {
+       sh "${MAVEN_HOME}/bin/mvn clean compile"
+       sh "${MAVEN_HOME}/bin/mvn clean package"
     }
 
     stage('SonarQube Report') {
       sh "${mavenHome}/bin/mvn sonar:sonar"
     }
 
-    stage('Upload Artifact') {
+    stage('Upload Artifact to Nexus') {
       sh "${mavenHome}/bin/mvn clean deploy"
     }
 
-    stage('Deploy - Approval/Reject to Tomcat') {
+    stage('Deployment Approval to Tomcat') {
        // Ask for approval before deploying
-            def userInput = input(
-                id: 'ApproveDeployment', message: 'Approve deployment to Tomcat?', parameters: [
-                    [$class: 'ChoiceParameterDefinition', choices: "Approve\nReject", name: 'DEPLOY_DECISION']
-                ]
-            )
+           steps {
+                script {
+                    def deployDecision = input(
+                        id: 'DeploymentApproval',
+                        message: 'Approve deployment to Tomcat?',
+                        parameters: [
+                            [$class: 'ChoiceParameterDefinition', choices: 'Approve\nReject', name: 'DEPLOY_DECISION']
+                        ]
+                    )
 
-            if (userInput == 'Approve') {
-                echo "Deployment approved. Deploying WAR to Tomcat..."
-                
-                def warFile = "${env.WORKSPACE}/target/maven-web-application.war"
-                if (!fileExists(warFile)) {
-                    error("WAR file not found: ${warFile}")
+                    if (deployDecision == 'Approve') {
+                        echo "Deployment Approved"
+                        currentBuild.description = "Deployment Approved ✅"
+                        
+                        if (!fileExists(WAR_FILE)) {
+                            error("WAR file not found: ${WAR_FILE}")
+                        }
+
+                        sh """
+                        curl -u kk:password --upload-file ${WAR_FILE} \
+                        "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
+                        """
+                        // Slack notification for approved deployment
+                        slackSend(color: '#00FF00', message: "Deployment approved & completed successfully ✅", channel: '#jio-devteamlearning')
+
+                    } else {
+                        echo "Deployment Rejected"
+                        currentBuild.description = "Deployment Rejected ❌"
+                        // Slack notification for rejected deployment
+                        slackSend(color: '#FF0000', message: "Deployment rejected by user ❌", channel: '#jio-devteamlearning')
+                        error("Deployment rejected by user") // Marks build as failed or aborted
+                    }
                 }
-
-                sh """
-                curl -u kk:password --upload-file ${warFile} \
-                "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
-                """
-            } else {
-                echo "Deployment rejected. Skipping deployment."
             }
+        }
     }
 
   } catch (e) {
@@ -61,9 +75,10 @@ node {
     notifyBuild(currentBuild.result)
   }
 
-} // node ending
 
-
+post {
+        always {
+script {
 // 🔹 Slack Notification Function
 def notifyBuild(String buildStatus = 'STARTED') {
   buildStatus = buildStatus ?: 'SUCCESS'
@@ -78,5 +93,15 @@ def notifyBuild(String buildStatus = 'STARTED') {
     colorCode = '#00FF00'
   }
 
-  slackSend(color: colorCode, message: summary, channel: '#jio-devteamlearning')
-}
+ def status = currentBuild.currentResult
+                def colorHex = '#FFFF00' // default: yellow
+
+                
+                if (status == 'SUCCESS') colorHex = '#00FF00'
+                else if (status == 'FAILURE') colorHex = '#FF0000'
+                else if (status == 'ABORTED') colorHex = '#FFA500'
+
+                slackSend(color: colorHex, message: "${status}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})", channel: '#jio-devteamlearning')
+            }
+        }
+    }
