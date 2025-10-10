@@ -1,8 +1,8 @@
-/* Task: implement a conditional deployment:
+/* 
+Task: Implement a conditional deployment
 
-If someone approves, deploy the WAR to Tomcat.
-
-If someone rejects, cancel deployment.
+If someone approves → deploy the WAR to Tomcat.  
+If someone rejects → cancel the deployment.
 */
 
 pipeline {
@@ -13,17 +13,18 @@ pipeline {
         WAR_FILE = "${env.WORKSPACE}/target/maven-web-application.war"
     }
 
-
     stages {
 
-    stage('Notify Build Started') {
+        // 🟡 Stage 1: Notify Start
+        stage('Notify Build Started') {
             steps {
                 script {
                     notifyBuild('STARTED')  // Send Slack message immediately
                 }
             }
         }
-        
+
+        // 🧩 Stage 2: Git Checkout
         stage('Git Checkout') {
             steps {
                 git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
@@ -31,6 +32,7 @@ pipeline {
             }
         }
 
+        // ⚙️ Stage 3: Maven Compile & Build
         stage('Maven Compile & Build') {
             steps {
                 sh "${MAVEN_HOME}/bin/mvn clean compile"
@@ -38,101 +40,92 @@ pipeline {
             }
         }
 
+        // 🧠 Stage 4: SonarQube Analysis
         stage('SonarQube Report') {
             steps {
                 sh "${MAVEN_HOME}/bin/mvn sonar:sonar"
             }
         }
 
+        // 📦 Stage 5: Upload to Nexus
         stage('Upload Artifact to Nexus') {
             steps {
                 sh "${MAVEN_HOME}/bin/mvn clean deploy"
             }
         }
 
+        // 🚦 Stage 6: Deployment Approval
         stage('Deployment Approval to Tomcat') {
-    steps {
-        script {
-             // This will trigger a modal popup in Jenkins UI immediately
-            def deployDecision = input(
-                id: 'DeploymentApproval', 
-                message: 'Do you approve deployment to Tomcat?', 
-                ok: 'Deploy',       // Button text for approval
-                submitter: 'malathi', // optional: restrict who can approve
-                parameters: [
-                    [$class: 'ChoiceParameterDefinition', choices: 'Approve\nReject', name: 'DEPLOY_DECISION']
-                ]
-            )
+            steps {
+                script {
+                    // 🟫 Notify waiting for approval
+                    notifyDeployment("🟫 Waiting for manual approval ⏸️", 'WAITING')
 
-            if (deployDecision == 'Approve') {
-                echo "Deployment Approved ✅"
-                currentBuild.description = "Deployment Approved ✅"
-                notifyDeployment("Deployment approved & completed ✅", '#0000FF')
-                
-                // Slack notification with Blue color
-                slackSend(color: '#0000FF', message: "Deployment approved & completed ✅", channel: '#jio-devteamlearning')
+                    // Popup for approval/rejection
+                    def deployDecision = input(
+                        id: 'DeploymentApproval',
+                        message: 'Do you approve deployment to Tomcat?',
+                        ok: 'Proceed',
+                        submitter: 'malathi', // optional: restrict approval
+                        parameters: [
+                            [$class: 'ChoiceParameterDefinition', choices: 'Approve\nReject', name: 'DEPLOY_DECISION']
+                        ]
+                    )
 
-                if (!fileExists(WAR_FILE)) {
-                    error("WAR file not found: ${WAR_FILE}")
+                    if (deployDecision == 'Approve') {
+                        echo "Deployment Approved ✅"
+                        currentBuild.description = "Deployment Approved ✅"
+                        notifyDeployment("🔵 Deployment approved & started ✅", 'APPROVED')
+
+                        if (!fileExists(WAR_FILE)) {
+                            error("WAR file not found: ${WAR_FILE}")
+                        }
+
+                        // Deploy to Tomcat
+                        sh """
+                        curl -u kk:password --upload-file ${WAR_FILE} \
+                        "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
+                        """
+
+                    } else {
+                        echo "Deployment Rejected ❌"
+                        currentBuild.description = "Deployment Rejected ❌"
+                        notifyDeployment("🟣 Deployment rejected by user ❌", 'REJECTED')
+                        error("Deployment rejected by user") // stops pipeline
+                    }
                 }
-
-                sh """
-                curl -u kk:password --upload-file ${WAR_FILE} \
-                "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
-                """
-
-            } else {
-                echo "Deployment Rejected ❌"
-                currentBuild.description = "Deployment Rejected ❌"
-                notifyDeployment("Deployment rejected by user ❌", '#800080')
-
-                // Slack notification with Purple color
-                slackSend(color: '#800080', message: "Deployment rejected by user ❌", channel: '#jio-devteamlearning')
-                error("Deployment rejected by user") // stops pipeline
             }
         }
-    }
-}
-
     }
 
     post {
         always {
             script {
                 def status = currentBuild.currentResult
-               notifyBuild(status)  // overall build status notification
+                notifyBuild(status)  // Send final build status
             }
         }
     }
 }
 
-// 🔹 Slack Notification Function
+// 🔹 Build Slack Notification Function
 def notifyBuild(String buildStatus = 'STARTED') {
     buildStatus = buildStatus ?: 'SUCCESS'
+    def colorCode = '#FFD700'  // 🟡 default yellow for STARTED
 
-// Build the subject & summary
-    def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
-    def summary = "${subject} (${env.BUILD_URL})"
+    if (buildStatus == 'SUCCESS') colorCode = '#00FF00'   // 🟩 green
+    else if (buildStatus == 'FAILURE') colorCode = '#FF0000'   // 🟥 red
+    else if (buildStatus == 'ABORTED') colorCode = '#FFA500'   // 🟧 orange
+    else if (buildStatus == 'STARTED') colorCode = '#FFD700'   // 🟡 gold
 
-    // Set Slack color based on status
-     def colorCode = '#FFFF00'  // default yellow
- if (buildStatus == 'SUCCESS') colorCode = '#00FF00'
-    else if (buildStatus == 'FAILURE') colorCode = '#FF0000'
-    else if (buildStatus == 'ABORTED') colorCode = '#FFA500'
-    else if (buildStatus == 'STARTED') colorCode = '#FFFF00' // yellow
-
-    def message = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
-    slackSend(color: colorCode, message: message, channel: '#jio-devteamlearning')
-
+    def summary = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
+    slackSend(color: colorCode, message: summary, channel: '#jio-devteamlearning')
 }
 
-def notifyDeployment(String message, String colorHex) 
-    {
+// 🔹 Deployment Notification Function
+def notifyDeployment(String message, String type) {
+    def colorHex = '#1E90FF' // 🔵 blue for approved
+    if (type == 'REJECTED') colorHex = '#800080' // 🟣 purple
+    else if (type == 'WAITING') colorHex = '#DAA520' // 🟫 goldenrod
     slackSend(color: colorHex, message: message, channel: '#jio-devteamlearning')
 }
-
-
-
-
-
- 
