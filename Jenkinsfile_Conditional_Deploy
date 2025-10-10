@@ -1,0 +1,42 @@
+node {
+    def mavenHome = tool name: "maven-3.9.6"
+
+    try {
+        stage('Git Checkout') {
+            git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
+        }
+
+        stage('Build') {
+            sh "${mavenHome}/bin/mvn clean package"
+        }
+
+        stage('Approval') {
+            // Ask for approval before deploying
+            def userInput = input(
+                id: 'ApproveDeployment', message: 'Approve deployment to Tomcat?', parameters: [
+                    [$class: 'ChoiceParameterDefinition', choices: "Approve\nReject", name: 'DEPLOY_DECISION']
+                ]
+            )
+
+            if (userInput == 'Approve') {
+                echo "Deployment approved. Deploying WAR to Tomcat..."
+                
+                def warFile = "${env.WORKSPACE}/target/maven-web-application.war"
+                if (!fileExists(warFile)) {
+                    error("WAR file not found: ${warFile}")
+                }
+
+                sh """
+                curl -u kk:password --upload-file ${warFile} \
+                "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
+                """
+            } else {
+                echo "Deployment rejected. Skipping deployment."
+            }
+        }
+
+    } catch (e) {
+        currentBuild.result = "FAILED"
+        throw e
+    }
+}
