@@ -71,58 +71,71 @@ stage('Deployment Approval to Tomcat') {
             )
 
             try {
-                timeout(time: 150, unit: 'SECONDS') {
-                    // Input step with submitterParameter to capture who approved/rejected
-                    def deployDecisionMap = input(
-                        id: 'DeploymentApproval',
-                        message: 'Do you approve deployment to Tomcat?',
-                        ok: 'Deploy',
-                        submitter: 'malathi,deepak,prasad,abhilash',
-                        submitterParameter: 'APPROVER',
-                        parameters: [
-                            [$class: 'ChoiceParameterDefinition', choices: 'Approve\nReject', name: 'DEPLOY_DECISION']
-                        ]
-                    )
+                timeout(time: 100, unit: 'SECONDS') {
+                    // Parallel thread for warning at 60 seconds
+                    parallel(
+                        'Approval Warning': {
+                            sleep 60
+                            notifyDeployment("⚠️ 40 seconds passed. 60 seconds remaining to approve deployment for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}].", "WAITING")
+                        },
+                        'Approval Input': {
+                            def deployDecisionMap = input(
+                                id: 'DeploymentApproval',
+                                message: 'Do you approve deployment to Tomcat?',
+                                ok: 'Deploy',
+                                submitter: 'malathi,deepak,prasad,abhilash',
+                                submitterParameter: 'APPROVER',
+                                parameters: [
+                                    [$class: 'ChoiceParameterDefinition', choices: 'Approve\nReject', name: 'DEPLOY_DECISION']
+                                ]
+                            )
 
-                    def deployDecision = deployDecisionMap['DEPLOY_DECISION']
-                    def approver = deployDecisionMap['APPROVER']
+                            def deployDecision = deployDecisionMap['DEPLOY_DECISION']
+                            def approver = deployDecisionMap['APPROVER']
 
-                    if (deployDecision == 'Approve') {
-                        echo "Deployment Approved ✅ by ${approver}"
-                        currentBuild.description = "Deployment Approved ✅ by ${approver}"
-                        notifyDeployment("Deployment Approved: Proceeding with Tomcat deployment for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] by ${approver}.", "APPROVED")
+                            if (deployDecision == 'Approve') {
+                                echo "Deployment Approved ✅ by ${approver}"
+                                currentBuild.description = "Deployment Approved ✅ by ${approver}"
+                                notifyDeployment("Deployment Approved: Proceeding with Tomcat deployment by ${approver}.", "APPROVED")
 
-                        if (!fileExists(WAR_FILE)) {
-                            error("WAR file not found: ${WAR_FILE}")
+                                if (!fileExists(WAR_FILE)) {
+                                    error("WAR file not found: ${WAR_FILE}")
+                                }
+
+                                sh """
+                                curl -u kk:password --upload-file ${WAR_FILE} \
+                                "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
+                                """
+
+                                notifyStage("Deployment to Tomcat completed ✅")
+                                notifyDeployment("Deployment Successful! Tomcat deployment completed by ${approver}.", "APPROVED")
+
+                            } else {
+                                echo "Deployment Rejected ❌ by ${approver}"
+                                currentBuild.description = "Deployment Rejected ❌ by ${approver}"
+                                notifyDeployment("Deployment Rejected: Tomcat deployment cancelled by ${approver}.", "REJECTED")
+                                error("Deployment rejected by ${approver}")
+                            }
                         }
-
-                        sh """
-                        curl -u kk:password --upload-file ${WAR_FILE} \
-                        "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
-                        """
-
-                        notifyStage("Deployment to Tomcat completed ✅")
-                        notifyDeployment("Deployment Successful! Tomcat deployment completed for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] by ${approver}.", "APPROVED")
-
-                    } else {
-                        echo "Deployment Rejected ❌ by ${approver}"
-                        currentBuild.description = "Deployment Rejected ❌ by ${approver}"
-                        notifyDeployment("Deployment Rejected: Tomcat deployment cancelled for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] by ${approver}.", "REJECTED")
-                        error("Deployment rejected by ${approver}")
-                    }
+                    )
                 }
             } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-                // Timeout occurred
-                echo "Deployment approval timed out ⏰"
-                currentBuild.description = "Deployment Aborted due to timeout ⚠️"
-                notifyDeployment("Deployment Aborted! No approval received within 150 seconds for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}].", "ABORTED")
-                error("Deployment aborted due to timeout")
+                // Handle timeout or user abort
+                def cause = e.getCauses()[0]
+                if (cause instanceof org.jenkinsci.plugins.workflow.steps.TimeoutStepExecution.ExceededTimeout) {
+                    echo "Deployment approval timed out ⏰"
+                    currentBuild.description = "Deployment Aborted due to timeout ⚠️"
+                    notifyDeployment("Deployment Aborted! No approval received within 150 seconds.", "ABORTED")
+                } else {
+                    echo "Deployment aborted by user ✋"
+                    currentBuild.description = "Deployment Aborted by user ✋"
+                    notifyDeployment("Deployment Aborted by user.", "ABORTED")
+                }
+                error("Deployment aborted")
             }
         }
     }
 }
-
-
 
     }
 
