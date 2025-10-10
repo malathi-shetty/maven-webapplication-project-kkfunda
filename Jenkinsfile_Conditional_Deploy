@@ -66,11 +66,12 @@ pipeline {
                 script {
                     currentBuild.description = "Deployment Approval Pending ⏸️"
                     notifyDeployment(
-                        "Deployment Approval Required!\nJob: ${env.JOB_NAME} [${env.BUILD_NUMBER}]\nURL: ${env.BUILD_URL}\nPlease confirm within 150 seconds to deploy to Tomcat.",
+                        "Deployment Approval Required!\nJob: ${env.JOB_NAME} [${env.BUILD_NUMBER}]\nURL: ${env.BUILD_URL}\nPlease confirm within 60 seconds to deploy to Tomcat.",
                         "WAITING"
                     )
 
-                    def deployDecision = input(
+def deployDecision = timeout(time: 60, unit: 'SECONDS') {
+                     input(
                         id: 'DeploymentApproval', 
                         message: 'Do you approve deployment to Tomcat?', 
                         ok: 'Deploy', 
@@ -79,7 +80,7 @@ pipeline {
                             [$class: 'ChoiceParameterDefinition', choices: 'Approve\nReject', name: 'DEPLOY_DECISION']
                         ]
                     )
-
+}
                     if (deployDecision == 'Approve') {
                         echo "Deployment Approved ✅"
                         currentBuild.description = "Deployment Approved ✅"
