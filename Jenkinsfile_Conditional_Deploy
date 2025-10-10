@@ -18,7 +18,7 @@ pipeline {
         stage('Notify Build Started') {
             steps {
                 script {
-                    currentBuild.description = "Build Started"
+                    currentBuild.description = "Build Started ⚡"
                     notifyBuild('STARTED', "Build Started by ${currentBuild.getBuildCauses()[0].shortDescription}")
                 }
             }
@@ -66,71 +66,48 @@ pipeline {
                 script {
                     currentBuild.description = "Deployment Approval Pending ⏸️"
                     notifyDeployment(
-                        "Deployment Approval Required!\nJob: ${env.JOB_NAME} [${env.BUILD_NUMBER}]\nURL: ${env.BUILD_URL}\nPlease confirm within 100 seconds to deploy to Tomcat.",
+                        "Deployment Approval Required!\nJob: ${env.JOB_NAME} [${env.BUILD_NUMBER}]\nURL: ${env.BUILD_URL}\nPlease confirm within 150 seconds to deploy to Tomcat.",
                         "WAITING"
                     )
 
-                    try {
-                        timeout(time: 100, unit: 'SECONDS') {
+                    def deployDecision = input(
+                        id: 'DeploymentApproval', 
+                        message: 'Do you approve deployment to Tomcat?', 
+                        ok: 'Deploy', 
+                        submitter: 'malathi',
+                        parameters: [
+                            [$class: 'ChoiceParameterDefinition', choices: 'Approve\nReject', name: 'DEPLOY_DECISION']
+                        ]
+                    )
 
-                            // Warning at 60 seconds in a separate thread
-                            Thread.start {
-                                sleep(60 * 1000)  // 60 seconds
-                                notifyDeployment("⚠️ 60 seconds elapsed, 40 seconds remaining to approve deployment for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}].", "WAITING")
-                            }
+                    if (deployDecision == 'Approve') {
+                        echo "Deployment Approved ✅"
+                        currentBuild.description = "Deployment Approved ✅"
+                        notifyDeployment(
+                            "Deployment Approved: Proceeding with Tomcat deployment for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}].",
+                            "APPROVED"
+                        )
 
-                            // Input step (main thread)
-                            def deployDecisionMap = input(
-                                id: 'DeploymentApproval',
-                                message: 'Do you approve deployment to Tomcat?',
-                                ok: 'Deploy',
-                                submitter: 'malathi,deepak,prasad,abhilash', // self-approval allowed
-                                submitterParameter: 'APPROVER',
-                                parameters: [
-                                    [$class: 'ChoiceParameterDefinition', choices: 'Approve\nReject', name: 'DEPLOY_DECISION']
-                                ]
-                            )
-
-                            def deployDecision = deployDecisionMap['DEPLOY_DECISION']
-                            def approver = deployDecisionMap['APPROVER']
-
-                            if (deployDecision == 'Approve') {
-                                echo "Deployment Approved ✅ by ${approver}"
-                                currentBuild.description = "Deployment Approved ✅ by ${approver}"
-                                notifyDeployment("Deployment Approved: Proceeding with Tomcat deployment by ${approver}.", "APPROVED")
-
-                                if (!fileExists(WAR_FILE)) {
-                                    error("WAR file not found: ${WAR_FILE}")
-                                }
-
-                                sh """
-                                curl -u kk:password --upload-file ${WAR_FILE} \
-                                "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
-                                """
-
-                                notifyStage("Deployment to Tomcat completed ✅")
-                                notifyDeployment("Deployment Successful! Tomcat deployment completed by ${approver}.", "APPROVED")
-
-                            } else {
-                                echo "Deployment Rejected ❌ by ${approver}"
-                                currentBuild.description = "Deployment Rejected ❌ by ${approver}"
-                                notifyDeployment("Deployment Rejected: Tomcat deployment cancelled by ${approver}.", "REJECTED")
-                                error("Deployment rejected by ${approver}")
-                            }
+                        if (!fileExists(WAR_FILE)) {
+                            error("WAR file not found: ${WAR_FILE}")
                         }
-                    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-                        // Timeout or user abort
-                        def cause = e.getCauses()[0]
-                        if (cause instanceof org.jenkinsci.plugins.workflow.steps.TimeoutStepExecution.ExceededTimeout) {
-                            echo "Deployment approval timed out ⏰"
-                            currentBuild.description = "Deployment Aborted due to timeout ⚠️"
-                            notifyDeployment("Deployment Aborted! No approval received within 100 seconds.", "ABORTED")
-                        } else {
-                            echo "Deployment aborted by user ✋"
-                            currentBuild.description = "Deployment Aborted by user ✋"
-                            notifyDeployment("Deployment Aborted by user.", "ABORTED")
-                        }
-                        error("Deployment aborted")
+
+                        sh """
+                        curl -u kk:password --upload-file ${WAR_FILE} \
+                        "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
+                        """
+
+                        notifyStage("Deployment to Tomcat completed ✅")
+                        notifyDeployment("Deployment Successful! Tomcat deployment completed for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}]", "APPROVED")
+
+                    } else {
+                        echo "Deployment Rejected ❌"
+                        currentBuild.description = "Deployment Rejected ❌"
+                        notifyDeployment(
+                            "Deployment Rejected: Tomcat deployment cancelled for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}].",
+                            "REJECTED"
+                        )
+                        error("Deployment rejected by user") 
                     }
                 }
             }
@@ -155,12 +132,12 @@ pipeline {
 // 🔹 Slack Notification Function for Overall Build Status
 def notifyBuild(String buildStatus = 'STARTED', String message = '') {
     buildStatus = buildStatus ?: 'SUCCESS'
-    def colorCode = '#FFD700'
+    def colorCode = '#FFD700'  // Yellow for STARTED
 
-    if (buildStatus == 'SUCCESS') colorCode = '#00FF00'
-    else if (buildStatus == 'FAILURE') colorCode = '#FF0000'
-    else if (buildStatus == 'ABORTED') colorCode = '#FF8C00'
-    else if (buildStatus == 'STARTED') colorCode = '#FF1493'
+    if (buildStatus == 'SUCCESS') colorCode = '#00FF00'   // Green
+    else if (buildStatus == 'FAILURE') colorCode = '#FF0000'   // Red
+    else if (buildStatus == 'ABORTED') colorCode = '#FF8C00'   // Dark Orange
+    else if (buildStatus == 'STARTED') colorCode = '#FF1493'   // Dark Pink for stage update
 
     def summary = message ?: "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
     slackSend(color: colorCode, message: summary, channel: '#jio-devteamlearning')
@@ -168,16 +145,16 @@ def notifyBuild(String buildStatus = 'STARTED', String message = '') {
 
 // 🔹 Slack Notification for Each Stage
 def notifyStage(String stageMessage) {
-    def colorHex = '#FF1493'
+    def colorHex = '#FF1493' // Dark Pink
     slackSend(color: colorHex, message: "Stage Update: ${stageMessage}", channel: '#jio-devteamlearning')
 }
 
 // 🔹 Slack Notification for Deployment Approval/Result
 def notifyDeployment(String message, String type) {
-    def colorHex = '#8B4513'
-    if (type == 'APPROVED') colorHex = '#1E90FF'
-    else if (type == 'REJECTED') colorHex = '#800080'
-    else if (type == 'ABORTED') colorHex = '#FF8C00'
+    def colorHex = '#8B4513' // Dark Brown for waiting
+    if (type == 'APPROVED') colorHex = '#1E90FF'   // Blue
+    else if (type == 'REJECTED') colorHex = '#800080' // Purple
+    else if (type == 'ABORTED') colorHex = '#FF8C00'  // Dark Orange
 
     slackSend(color: colorHex, message: message, channel: '#jio-devteamlearning')
 }
