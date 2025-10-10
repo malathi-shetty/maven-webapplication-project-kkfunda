@@ -97,7 +97,7 @@ notifyStage("Deployment to Tomcat completed ✅")
             } else {
                 echo "Deployment Rejected ❌"
                 currentBuild.description = "Deployment Rejected ❌"
-                notifyDeployment("Deployment rejected by user ❌", '"REJECTED")
+                notifyDeployment("Deployment rejected by user ❌", "REJECTED")
                 error("Deployment rejected by user") // stops pipeline
             }
         }
