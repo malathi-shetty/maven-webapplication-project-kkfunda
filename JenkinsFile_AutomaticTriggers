@@ -8,7 +8,7 @@ properties([
        // pollSCM('* * * * *')   // Polls GitHub every minute for changes
         // githubPush()         // Optional: use webhook if configured
         // cron('H 2 * * *')    // Optional: daily schedule at 2 AM
- cron('* * * * *')  // triggers every minute
+ // cron('* * * * *')  // triggers every minute
     ])
 ])
 
