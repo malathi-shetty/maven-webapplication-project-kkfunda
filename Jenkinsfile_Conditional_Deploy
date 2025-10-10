@@ -20,7 +20,8 @@ pipeline {
             steps {
                 script {
                 currentBuild.description = "Build Started"
-                    notifyBuild('STARTED')  // Send Slack message immediately
+                   // notifyBuild('STARTED')  // Send Slack message immediately
+                   notifyBuild('STARTED', "Build Started by ${currentBuild.getBuildCauses()[0].shortDescription}")
                 }
             }
         }
@@ -66,7 +67,13 @@ pipeline {
     steps {
         script {
 currentBuild.description = "Deployment Approval Pending ⏸️"
-                    notifyDeployment("Waiting for deployment approval ⏸️", "WAITING")
+                  //  notifyDeployment("Waiting for deployment approval ⏸️", "WAITING")
+
+notifyDeployment(
+                        "Deployment Approval Required!\nJob: ${env.JOB_NAME} [${env.BUILD_NUMBER}]\nURL: ${env.BUILD_URL}\nPlease confirm within 150 seconds to deploy to Tomcat.",
+                        "WAITING"
+                    )
+
 
              // This will trigger a modal popup in Jenkins UI immediately
             def deployDecision = input(
@@ -82,8 +89,13 @@ currentBuild.description = "Deployment Approval Pending ⏸️"
             if (deployDecision == 'Approve') {
                 echo "Deployment Approved ✅"
                 currentBuild.description = "Deployment Approved ✅"
-                notifyDeployment("Deployment approved & completed ✅", "APPROVED")
-                
+             //   notifyDeployment("Deployment approved & completed ✅", "APPROVED")
+               
+               notifyDeployment(
+                            "Deployment Approved: Proceeding with Tomcat deployment for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}].",
+                            "APPROVED"
+                        )
+
                
                 if (!fileExists(WAR_FILE)) {
                     error("WAR file not found: ${WAR_FILE}")
@@ -94,10 +106,21 @@ currentBuild.description = "Deployment Approval Pending ⏸️"
                 "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
                 """
 notifyStage("Deployment to Tomcat completed ✅")
+
+notifyDeployment("Deployment Successful! Tomcat deployment completed for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}]", "APPROVED")
+
+
             } else {
                 echo "Deployment Rejected ❌"
                 currentBuild.description = "Deployment Rejected ❌"
-                notifyDeployment("Deployment rejected by user ❌", "REJECTED")
+              //  notifyDeployment("Deployment rejected by user ❌", "REJECTED")
+
+              notifyDeployment(
+                            "Deployment Rejected: Tomcat deployment cancelled for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}].",
+                            "REJECTED"
+                        )
+
+
                 error("Deployment rejected by user") // stops pipeline
             }
         }
@@ -112,7 +135,8 @@ notifyStage("Deployment to Tomcat completed ✅")
                 def status = currentBuild.currentResult
                  if (status == 'ABORTED') {
                     currentBuild.description = "Build Aborted ⚠️"
-                    notifyDeployment("Build Aborted ⚠️", "ABORTED")
+                //    notifyDeployment("Build Aborted ⚠️", "ABORTED")
+                 notifyDeployment("Deployment Aborted!\nJob: ${env.JOB_NAME} [${env.BUILD_NUMBER}]\nURL: ${env.BUILD_URL}", "ABORTED")
                 }
                notifyBuild(status)  // overall build status notification
             }
@@ -122,22 +146,22 @@ notifyStage("Deployment to Tomcat completed ✅")
 
 // 🔹 Slack Notification Function for Overall Build Status
 
-def notifyBuild(String buildStatus = 'STARTED') {
+def notifyBuild(String buildStatus = 'STARTED', String message = '') {
     buildStatus = buildStatus ?: 'SUCCESS'
-    def colorCode = '#FFD700'  // default yellow for STARTED
+    def colorCode = '#FFD700'  // Yellow for STARTED
 
-    if (buildStatus == 'SUCCESS') colorCode = '#00FF00'   // green
-    else if (buildStatus == 'FAILURE') colorCode = '#FF0000'   // red
-    else if (buildStatus == 'ABORTED') colorCode = '#FF8C00'   // orange
-    else if (buildStatus == 'STARTED') colorCode = '#FFD700'   // yellow
+    if (buildStatus == 'SUCCESS') colorCode = '#00FF00'   // Green
+    else if (buildStatus == 'FAILURE') colorCode = '#FF0000'   // Red
+    else if (buildStatus == 'ABORTED') colorCode = '#FF8C00'   // Dark Orange
+    else if (buildStatus == 'STARTED') colorCode = '#FF1493'   // Dark Pink for stage update
 
-    def summary = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
+    def summary = message ?: "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
     slackSend(color: colorCode, message: summary, channel: '#jio-devteamlearning')
 }
 
 // 🔹 Slack Notification for Each Stage
 def notifyStage(String stageMessage) {
-    def colorHex = '#C71585' // Dark Pink
+    def colorHex = '#FF1493' // Dark Pink
     slackSend(color: colorHex, message: "Stage Update: ${stageMessage}", channel: '#jio-devteamlearning')
 }
 
