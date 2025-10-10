@@ -15,6 +15,15 @@ pipeline {
 
 
     stages {
+
+    stage('Notify Build Started') {
+            steps {
+                script {
+                    notifyBuild('STARTED')  // Send Slack message immediately
+                }
+            }
+        }
+        
         stage('Git Checkout') {
             steps {
                 git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
@@ -44,9 +53,12 @@ pipeline {
         stage('Deployment Approval to Tomcat') {
     steps {
         script {
+             // This will trigger a modal popup in Jenkins UI immediately
             def deployDecision = input(
-                id: 'DeploymentApproval',
-                message: 'Approve deployment to Tomcat?',
+                id: 'DeploymentApproval', 
+                message: 'Do you approve deployment to Tomcat?', 
+                ok: 'Deploy',       // Button text for approval
+                submitter: 'malathi', // optional: restrict who can approve
                 parameters: [
                     [$class: 'ChoiceParameterDefinition', choices: 'Approve\nReject', name: 'DEPLOY_DECISION']
                 ]
@@ -55,7 +67,7 @@ pipeline {
             if (deployDecision == 'Approve') {
                 echo "Deployment Approved ✅"
                 currentBuild.description = "Deployment Approved ✅"
-                notifyDeployment("Deployment Approved & completed ✅", '#0000FF')
+                notifyDeployment("Deployment approved & completed ✅", '#0000FF')
                 
                 // Slack notification with Blue color
                 slackSend(color: '#0000FF', message: "Deployment approved & completed ✅", channel: '#jio-devteamlearning')
@@ -89,7 +101,6 @@ pipeline {
             script {
                 def status = currentBuild.currentResult
                notifyBuild(status)  // overall build status notification
-                
             }
         }
     }
@@ -117,7 +128,7 @@ def notifyBuild(String buildStatus = 'STARTED') {
 
 def notifyDeployment(String message, String colorHex) 
     {
-    slackSend(color: colorHex, message: summary, channel: '#jio-devteamlearning')
+    slackSend(color: colorHex, message: message, channel: '#jio-devteamlearning')
 }
 
 
