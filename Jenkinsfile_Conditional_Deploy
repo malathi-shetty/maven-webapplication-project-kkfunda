@@ -55,7 +55,7 @@ pipeline {
             if (deployDecision == 'Approve') {
                 echo "Deployment Approved ✅"
                 currentBuild.description = "Deployment Approved ✅"
-                notifyDeployment("Deployment Approved", '#0000FF') 
+                notifyDeployment("Deployment Approved & completed ✅", '#0000FF')
                 
                 // Slack notification with Blue color
                 slackSend(color: '#0000FF', message: "Deployment approved & completed ✅", channel: '#jio-devteamlearning')
@@ -72,7 +72,7 @@ pipeline {
             } else {
                 echo "Deployment Rejected ❌"
                 currentBuild.description = "Deployment Rejected ❌"
-                notifyDeployment("Deployment Rejected", '#800080') 
+                notifyDeployment("Deployment rejected by user ❌", '#800080')
 
                 // Slack notification with Purple color
                 slackSend(color: '#800080', message: "Deployment rejected by user ❌", channel: '#jio-devteamlearning')
@@ -89,7 +89,7 @@ pipeline {
             script {
                 def status = currentBuild.currentResult
                notifyBuild(status)  // overall build status notification
-                )
+                
             }
         }
     }
@@ -116,8 +116,8 @@ def notifyBuild(String buildStatus = 'STARTED') {
 }
 
 def notifyDeployment(String message, String colorHex) 
-    
-    slackSend(color: colorCode, message: summary, channel: '#jio-devteamlearning')
+    {
+    slackSend(color: colorHex, message: summary, channel: '#jio-devteamlearning')
 }
 
 
