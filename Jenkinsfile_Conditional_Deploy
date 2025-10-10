@@ -65,52 +65,63 @@ stage('Deployment Approval to Tomcat') {
     steps {
         script {
             currentBuild.description = "Deployment Approval Pending ⏸️"
-
-            // Slack message for waiting
             notifyDeployment(
                 "Deployment Approval Required!\nJob: ${env.JOB_NAME} [${env.BUILD_NUMBER}]\nURL: ${env.BUILD_URL}\nPlease confirm within 150 seconds to deploy to Tomcat.",
                 "WAITING"
             )
 
-            // Capture who triggered the build
-            def buildTriggerUser = currentBuild.getBuildCauses()[0].userName
+            try {
+                timeout(time: 150, unit: 'SECONDS') {
+                    // Input step with submitterParameter to capture who approved/rejected
+                    def deployDecisionMap = input(
+                        id: 'DeploymentApproval',
+                        message: 'Do you approve deployment to Tomcat?',
+                        ok: 'Deploy',
+                        submitter: 'malathi,deepak,prasad,abhilash',
+                        submitterParameter: 'APPROVER',
+                        parameters: [
+                            [$class: 'ChoiceParameterDefinition', choices: 'Approve\nReject', name: 'DEPLOY_DECISION']
+                        ]
+                    )
 
-            // Input step for approval
-            def deployDecisionMap = input(
-                id: 'DeploymentApproval',
-                message: 'Do you approve deployment to Tomcat?',
-                ok: 'Deploy',
-                submitter: 'malathi,deepak,prasad,abhilash', // allowed approvers
-                submitterParameter: 'APPROVER',
-                parameters: [
-                    [$class: 'ChoiceParameterDefinition', choices: 'Approve\nReject', name: 'DEPLOY_DECISION']
-                ],
-                timeout: 50,
-                timeoutMessage: 'Deployment approval timed out! Canceling deployment.'
-            )
+                    def deployDecision = deployDecisionMap['DEPLOY_DECISION']
+                    def approver = deployDecisionMap['APPROVER']
 
-            def deployDecision = deployDecisionMap['DEPLOY_DECISION']
-            def approver = deployDecisionMap['APPROVER']
+                    if (deployDecision == 'Approve') {
+                        echo "Deployment Approved ✅ by ${approver}"
+                        currentBuild.description = "Deployment Approved ✅ by ${approver}"
+                        notifyDeployment("Deployment Approved: Proceeding with Tomcat deployment for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] by ${approver}.", "APPROVED")
 
-            // Prevent the build starter from approving
-            if (approver == buildTriggerUser) {
-                error("Approval cannot be given by the user who started the build (${approver})")
-            }
+                        if (!fileExists(WAR_FILE)) {
+                            error("WAR file not found: ${WAR_FILE}")
+                        }
 
-            if (deployDecision == 'Approve') {
-                echo "Deployment Approved ✅ by ${approver}"
-                currentBuild.description = "Deployment Approved ✅ by ${approver}"
-                notifyDeployment("Deployment Approved ✅ by ${approver}", "APPROVED")
-                // WAR deployment steps...
-            } else {
-                echo "Deployment Rejected ❌ by ${approver}"
-                currentBuild.description = "Deployment Rejected ❌ by ${approver}"
-                notifyDeployment("Deployment Rejected ❌ by ${approver}", "REJECTED")
-                error("Deployment rejected by ${approver}")
+                        sh """
+                        curl -u kk:password --upload-file ${WAR_FILE} \
+                        "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
+                        """
+
+                        notifyStage("Deployment to Tomcat completed ✅")
+                        notifyDeployment("Deployment Successful! Tomcat deployment completed for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] by ${approver}.", "APPROVED")
+
+                    } else {
+                        echo "Deployment Rejected ❌ by ${approver}"
+                        currentBuild.description = "Deployment Rejected ❌ by ${approver}"
+                        notifyDeployment("Deployment Rejected: Tomcat deployment cancelled for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] by ${approver}.", "REJECTED")
+                        error("Deployment rejected by ${approver}")
+                    }
+                }
+            } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+                // Timeout occurred
+                echo "Deployment approval timed out ⏰"
+                currentBuild.description = "Deployment Aborted due to timeout ⚠️"
+                notifyDeployment("Deployment Aborted! No approval received within 150 seconds for Job ${env.JOB_NAME} [${env.BUILD_NUMBER}].", "ABORTED")
+                error("Deployment aborted due to timeout")
             }
         }
     }
 }
+
 
 
     }
