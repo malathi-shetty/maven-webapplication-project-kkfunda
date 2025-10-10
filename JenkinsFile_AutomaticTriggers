@@ -1,15 +1,16 @@
 // Today’s task: Add automatic triggers in Groovy script so the build runs automatically without manual start.
-node {
+
 
   // 🔹 Automatic triggers
-  properties([
+ properties([
     pipelineTriggers([
-      pollSCM('* * * * *')   // Polls GitHub every 2 minutes for changes
-      // githubPush()          // OR use this if you configured GitHub webhook
-      // cron('H 2 * * *')       // Optional: schedule it daily at 2 AM
+      pollSCM('* * * * *')   // Polls GitHub every minute for changes
+      // githubPush(),          
+      // cron('H 2 * * *')  
     ])
-  ])
-
+])
+node {
+echo "Polling executed at ${new Date()}"
   echo "git branch name: ${env.BRANCH_NAME}"
   echo "build number is: ${env.BUILD_NUMBER}"
   echo "node name is: ${env.NODE_NAME}"
@@ -40,9 +41,14 @@ node {
     }
 
     stage('Deploy to Tomcat') {
+ script {
+        def warFile = "${env.WORKSPACE}/target/maven-web-application.war"
+        if (!fileExists(warFile)) {
+            error("WAR file not found: ${warFile}")
+        }
       sh """
         curl -u kk:password \
-        --upload-file /var/lib/jenkins/workspace/jio-dev-scriptedway-PL/target/maven-web-application.war \
+       --upload-file ${env.WORKSPACE}/target/maven-web-application.war \
         "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
       """
     }
