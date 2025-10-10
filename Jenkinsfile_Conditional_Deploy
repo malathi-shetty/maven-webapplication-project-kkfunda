@@ -18,52 +18,62 @@ pipeline {
         stage('Notify Build Started') {
             steps {
                 script {
-                    notifyBuild('STARTED')  // Pipeline start
+                    currentBuild.description = "Build Started ⏳"
+                    notifyStage("Build Started")
                 }
             }
         }
 
         stage('Git Checkout') {
             steps {
+                script { notifyStage("Git Checkout Started") }
                 git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
                 echo "Git branch: ${env.BRANCH_NAME}"
-                notifyStage("Git Checkout completed, moving to Maven Build")
+                notifyStage("Git Checkout Completed ✅")
             }
         }
 
         stage('Maven Compile & Build') {
             steps {
+                script { notifyStage("Maven Compile Started") }
                 sh "${MAVEN_HOME}/bin/mvn clean compile"
+                notifyStage("Maven Compile Completed ✅")
+
+                script { notifyStage("Maven Package Started") }
                 sh "${MAVEN_HOME}/bin/mvn clean package"
-                notifyStage("Maven Compile & Package completed, moving to SonarQube Analysis")
+                notifyStage("Maven Package Completed ✅")
             }
         }
 
         stage('SonarQube Report') {
             steps {
+                script { notifyStage("SonarQube Analysis Started") }
                 sh "${MAVEN_HOME}/bin/mvn sonar:sonar"
-                notifyStage("SonarQube analysis completed, moving to Nexus upload")
+                notifyStage("SonarQube Analysis Completed ✅")
             }
         }
 
         stage('Upload Artifact to Nexus') {
             steps {
+                script { notifyStage("Artifact Upload to Nexus Started") }
                 sh "${MAVEN_HOME}/bin/mvn clean deploy"
-                notifyStage("Artifact uploaded to Nexus, moving to Deployment Approval")
+                notifyStage("Artifact Uploaded to Nexus ✅")
             }
         }
 
         stage('Deployment Approval to Tomcat') {
             steps {
                 script {
-                    // 🟫 Slack for waiting (after Nexus, just before input)
-                    notifyDeployment("🟫 Waiting for manual approval ⏸️", 'WAITING')
+                    // Waiting notification
+                    currentBuild.description = "Deployment Approval Pending ⏸️"
+                    notifyDeployment("Waiting for deployment approval ⏸️", "WAITING")
 
+                    // Popup approval
                     def deployDecision = input(
-                        id: 'DeploymentApproval',
-                        message: 'Do you approve deployment to Tomcat?',
-                        ok: 'Proceed',
-                        submitter: 'malathi', // optional: restrict approval
+                        id: 'DeploymentApproval', 
+                        message: 'Do you approve deployment to Tomcat?', 
+                        ok: 'Deploy',
+                        submitter: 'malathi',
                         parameters: [
                             [$class: 'ChoiceParameterDefinition', choices: 'Approve\nReject', name: 'DEPLOY_DECISION']
                         ]
@@ -72,7 +82,7 @@ pipeline {
                     if (deployDecision == 'Approve') {
                         echo "Deployment Approved ✅"
                         currentBuild.description = "Deployment Approved ✅"
-                        notifyDeployment("🔵 Deployment approved & started ✅", 'APPROVED')
+                        notifyDeployment("Deployment approved & completed ✅", "APPROVED")
 
                         if (!fileExists(WAR_FILE)) {
                             error("WAR file not found: ${WAR_FILE}")
@@ -82,52 +92,58 @@ pipeline {
                         curl -u kk:password --upload-file ${WAR_FILE} \
                         "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
                         """
+                        notifyStage("Deployment to Tomcat Completed ✅")
                     } else {
                         echo "Deployment Rejected ❌"
                         currentBuild.description = "Deployment Rejected ❌"
-                        notifyDeployment("🟣 Deployment rejected by user ❌", 'REJECTED')
-                        error("Deployment rejected by user") // stops pipeline
+                        notifyDeployment("Deployment rejected by user ❌", "REJECTED")
+                        error("Deployment rejected by user")
                     }
                 }
             }
         }
-
     }
 
     post {
         always {
             script {
                 def status = currentBuild.currentResult
-                notifyBuild(status)  // final build status
+                if (status == 'ABORTED') {
+                    currentBuild.description = "Build Aborted ⚠️"
+                    notifyDeployment("Build Aborted ⚠️", "ABORTED")
+                }
+                notifyBuild(status)
             }
         }
     }
 }
 
-// 🔹 Build Slack Notification Function
+// 🔹 Slack Notification for Overall Build Status
 def notifyBuild(String buildStatus = 'STARTED') {
     buildStatus = buildStatus ?: 'SUCCESS'
-    def colorCode = '#FFD700'  // default yellow for STARTED
+    def colorCode = '#FFD700'  // Yellow default
 
-    if (buildStatus == 'SUCCESS') colorCode = '#00FF00'   // green
-    else if (buildStatus == 'FAILURE') colorCode = '#FF0000'   // red
-    else if (buildStatus == 'ABORTED') colorCode = '#FF8C00'   // dark orange
-    else if (buildStatus == 'STARTED') colorCode = '#FFD700'   // yellow
+    if (buildStatus == 'SUCCESS') colorCode = '#00FF00'
+    else if (buildStatus == 'FAILURE') colorCode = '#FF0000'
+    else if (buildStatus == 'ABORTED') colorCode = '#FF8C00'
+    else if (buildStatus == 'STARTED') colorCode = '#FFD700'
 
-    def summary = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
-    slackSend(color: colorCode, message: summary, channel: '#jio-devteamlearning')
+    def message = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
+    slackSend(color: colorCode, message: message, channel: '#jio-devteamlearning')
 }
 
-// 🔹 Stage Slack Notification Function
-def notifyStage(String message) {
-    // stage progress messages → neutral color, teal-like
-    slackSend(color: '#4682B4', message: message, channel: '#jio-devteamlearning')
+// 🔹 Slack Notification for Each Stage
+def notifyStage(String stageMessage) {
+    def colorHex = '#FFD700' // Yellow
+    slackSend(color: colorHex, message: "Stage Update: ${stageMessage}", channel: '#jio-devteamlearning')
 }
 
-// 🔹 Deployment Notification Function
+// 🔹 Slack Notification for Deployment Approval/Result
 def notifyDeployment(String message, String type) {
-    def colorHex = '#1E90FF' // 🔵 approved
-    if (type == 'REJECTED') colorHex = '#800080' // 🟣 rejected
-    else if (type == 'WAITING') colorHex = '#654321' // 🟫 dark brown
+    def colorHex = '#8B4513' // Dark Brown for waiting
+    if (type == 'APPROVED') colorHex = '#1E90FF'   // Blue
+    else if (type == 'REJECTED') colorHex = '#800080' // Purple
+    else if (type == 'ABORTED') colorHex = '#FF8C00'  // Dark Orange
+
     slackSend(color: colorHex, message: message, channel: '#jio-devteamlearning')
 }
