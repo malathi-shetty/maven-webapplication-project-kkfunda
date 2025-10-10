@@ -1,4 +1,10 @@
-// Today’s task: Add automatic triggers in Groovy script so the build runs automatically without manual start.
+/* Task: implement a conditional deployment:
+
+If someone approves, deploy the WAR to Tomcat.
+
+If someone rejects, cancel deployment.
+*/
+
 pipeline {
     agent any
 
@@ -6,6 +12,7 @@ pipeline {
         MAVEN_HOME = tool name: "maven-3.9.6"
         WAR_FILE = "${env.WORKSPACE}/target/maven-web-application.war"
     }
+
 
     stages {
         stage('Git Checkout') {
@@ -46,7 +53,7 @@ pipeline {
                     )
 
                     if (deployDecision == 'Approve') {
-                        echo "Deployment Approved"
+                        echo "Deployment Approved ✅"
                         currentBuild.description = "Deployment Approved ✅"
 
                         if (!fileExists(WAR_FILE)) {
@@ -58,11 +65,14 @@ pipeline {
                         "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
                         """
 
+                        // Slack notification for Deployment Approved
                         slackSend(color: '#00FF00', message: "Deployment approved & completed ✅", channel: '#jio-devteamlearning')
 
                     } else {
                         echo "Deployment Rejected"
                         currentBuild.description = "Deployment Rejected ❌"
+
+                        // Slack notification for Deployment Rejected
                         slackSend(color: '#FF0000', message: "Deployment rejected by user ❌", channel: '#jio-devteamlearning')
                         error("Deployment rejected by user") // stops pipeline
                     }
@@ -90,3 +100,23 @@ pipeline {
     }
 }
 
+// 🔹 Slack Notification Function
+def notifyBuild(String buildStatus = 'STARTED') {
+    buildStatus = buildStatus ?: 'SUCCESS'
+
+    def colorCode = '#FF0000' // default red
+    def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
+    def summary = "${subject} (${env.BUILD_URL})"
+
+    if (buildStatus == 'STARTED') {
+        colorCode = '#FFFF00'  // yellow
+    } else if (buildStatus == 'SUCCESS') {
+        colorCode = '#00FF00'  // green
+    } else if (buildStatus == 'FAILURE') {
+        colorCode = '#FF0000'  // red
+    } else if (buildStatus == 'ABORTED') {
+        colorCode = '#FFA500'  // orange
+    }
+
+    slackSend(color: colorCode, message: summary, channel: '#jio-devteamlearning')
+}
