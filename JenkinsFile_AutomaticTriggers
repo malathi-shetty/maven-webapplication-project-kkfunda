@@ -20,7 +20,7 @@ node {
 
     stage('Git Checkout') {
       notifyBuild('STARTED')
-      git branch: 'development', url: 'https://github.com/ariefmohammad07860/maven-webapplication-project-kkfunda.git'
+      git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
     }
 
     stage('Compile') {
@@ -41,9 +41,9 @@ node {
 
     stage('Deploy to Tomcat') {
       sh """
-        curl -u arief:arief \
+        curl -u kk:password \
         --upload-file /var/lib/jenkins/workspace/jio-dev-scriptedway-PL/target/maven-web-application.war \
-        "http://54.145.20.3:8080/manager/text/deploy?path=/maven-web-application&update=true"
+        "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
       """
     }
 
@@ -70,5 +70,5 @@ def notifyBuild(String buildStatus = 'STARTED') {
     colorCode = '#00FF00'
   }
 
-  slackSend(color: colorCode, message: summary, channel: '#jio-devteam')
+  slackSend(color: colorCode, message: summary, channel: '#jio-devteamlearning')
 }
