@@ -23,7 +23,7 @@
 		<log4j.version>1.2.17</log4j.version>
 		<sonar.host.url>http://13.201.126.185:9000/</sonar.host.url>
 		<sonar.login>admin</sonar.login>
-		<sonar.password>password</sonar.password> 
+		<sonar.password>admin123</sonar.password> 
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
@@ -84,12 +84,7 @@
 		
 		<!-- provided dependencies -->
 
-		<dependency>
-			<groupId>javax.servlet</groupId>
-			<artifactId>javax.servlet-api</artifactId>
-			<version>3.1.0</version>
-			<scope>provided</scope>
-		</dependency>
+		
 		
 	</dependencies>
 	
