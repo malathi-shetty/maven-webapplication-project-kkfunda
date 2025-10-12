@@ -5,8 +5,8 @@
 	<groupId>com.kk</groupId>
 	<artifactId>maven-web-application-kkfunda</artifactId>
 	<packaging>war</packaging>
-	<!-- <version>1.0.0</version> -->
-	<version>3.2.0-SNAPSHOT</version>
+	<version>3.5.0-SNAPSHOT</version>
+	
 	<name>maven-web-application</name>
 
 	<description>Maven Web Project for Java Project</description>
@@ -23,7 +23,7 @@
 		<log4j.version>1.2.17</log4j.version>
 		<sonar.host.url>http://13.201.126.185:9000/</sonar.host.url>
 		<sonar.login>admin</sonar.login>
-		<sonar.password>admin123</sonar.password> 
+		<sonar.password>password</sonar.password> 
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
@@ -34,30 +34,28 @@
 		<dependency>
 			<groupId>org.json</groupId>
 			<artifactId>json</artifactId>
-			<version>20250517</version>
+			<version>20231013</version>
 		</dependency>
 		
 		<!-- test dependencies -->
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			<version>4.13.2</version>
+			<version>3.8.1</version>
 			<scope>test</scope>
 		</dependency>
 
 		<dependency>
-  <groupId>javax.servlet</groupId>
-  <artifactId>javax.servlet-api</artifactId>
-  <version>4.0.1</version>
-  <scope>provided</scope>
-</dependency>
-
-
+			<groupId>javax.servlet</groupId>
+			<artifactId>javax.servlet-api</artifactId>
+			<version>3.1.0</version>
+			<scope>provided</scope>
+		</dependency>
 
 		<dependency>
 			<groupId>org.mockito</groupId>
 			<artifactId>mockito-core</artifactId>
-			<version>5.20.0</version>
+			<version>1.9.5</version>
 			<scope>test</scope>
 		</dependency>
 
@@ -86,7 +84,12 @@
 		
 		<!-- provided dependencies -->
 
-	
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>javax.servlet-api</artifactId>
+			<version>3.1.0</version>
+			<scope>provided</scope>
+		</dependency>
 		
 	</dependencies>
 	
@@ -95,7 +98,7 @@
 	    <repository>
 	      <id>nexus</id>
 	      <name>KK FUNDA Releases Nexus Repository</name>
-	      <url>http://13.127.244.165:8081/repository/flipkart-release/</url>
+	      <url>http://13.127.244.165:8081/repository/flipkart-release/</url>	   
 	    </repository>
 	    
 	    <snapshotRepository>
@@ -113,7 +116,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.14.1</version>
+				<version>3.3</version>
 				<configuration>
 					<source>${jdk.version}</source>
 					<target>${jdk.version}</target>
@@ -123,7 +126,7 @@
 			<plugin>
 				<groupId>org.eclipse.jetty</groupId>
 				<artifactId>jetty-maven-plugin</artifactId>
-				<version>11.0.25</version>
+				<version>9.2.11.v20150529</version>
 				<configuration>
 					<scanIntervalSeconds>10</scanIntervalSeconds>
 					<webApp>
@@ -143,44 +146,6 @@
 					<wtpContextName>maven-web-application</wtpContextName>
 				</configuration>
 			</plugin>
-
-		<plugin>
-    <groupId>org.jacoco</groupId>
-    <artifactId>jacoco-maven-plugin</artifactId>
-    <version>0.8.12</version>
-    <executions>
-        <execution>
-            <id>prepare-agent</id>
-            <goals>
-                <goal>prepare-agent</goal>
-            </goals>
-        </execution>
-        <execution>
-            <id>report</id>
-            <phase>verify</phase> <!-- Use verify so it happens after tests -->
-            <goals>
-                <goal>report</goal>
-            </goals>
-        </execution>
-        <execution>
-            <id>report-xml</id>
-            <phase>verify</phase>
-            <goals>
-                <goal>report</goal>
-            </goals>
-            <configuration>
-                <dataFile>${project.build.directory}/jacoco.exec</dataFile>
-                <outputDirectory>${project.reporting.outputDirectory}/jacoco</outputDirectory>
-                <output>file</output>
-                <formats>
-                    <format>xml</format>
-                </formats>
-            </configuration>
-        </execution>
-    </executions>
-</plugin>
-
-
 			
 </plugins>
 	</build>
