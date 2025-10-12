@@ -43,7 +43,7 @@ notifyBuild('STARTED')
                 sh """
             curl -u kk:password \
             --upload-file /var/lib/jenkins/workspace/Jio-Declarative-PL-dev-Git/target/maven-web-application.war \
-            "http://65.0.61.29:8080/manager/text/deploy?path=/maven-web-application&update=true"
+            "http://52.66.253.43:8080/manager/text/deploy?path=/maven-web-application&update=true"
         """
             }
         }  //stage ending
