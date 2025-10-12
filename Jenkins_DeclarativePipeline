@@ -11,6 +11,7 @@ pipeline {
         {
           steps
           {
+//testing
 notifyBuild('STARTED')
              git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
           }
