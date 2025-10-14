@@ -1,0 +1,95 @@
+pipeline {
+    agent any
+    tools
+    {
+      maven "maven-3.9.6"
+    }
+     stages
+     {
+ // Stage 1: Git Checkout
+        stage('git checkout')
+        {
+          steps
+          {
+//testing
+notifyBuild('STARTED')
+             git branch: 'development', url: 'https://github.com/malathi-shetty/maven-webapplication-project-kkfunda.git'
+          }
+        } //stage  close
+
+          // Stage 2: Maven Build, Sonar scan, and Nexus deploy (Run in parallel)
+        stage('Build maven, SQ Report and Upload into Nexus') {
+            steps {
+                parallel (
+                    "Build": {
+                        sh "mvn clean package"  // Run Maven build
+                    },
+                    "Sonar": {
+                        sh "mvn sonar:sonar"  // Run Sonar scan
+                    }
+                    "Nexus": {
+                        sh "mvn clean deploy"  // Run Nexus scan
+                    }
+                )
+            }
+        } //stage ending
+
+// Stage 3: Deply Tomcat
+        stage('tomcat deploy')
+        {
+        steps {
+                sh """
+            curl -u kk:password \
+            --upload-file /var/lib/jenkins/workspace/Jio-Declarative-PL-dev-Git/target/maven-web-application.war \
+            "http://3.108.52.219:8080/manager/text/deploy?path=/maven-web-application&update=true"
+        """
+            }
+        }  //stage ending
+  }  // stages closing
+
+
+
+post {
+  success {
+
+    script
+    {
+     notifyBuild(currentBuild.result)
+    }
+    
+  }
+  failure {
+
+  script
+  {
+    notifyBuild(currentBuild.result)
+
+  }
+   
+  }
+}
+
+
+} // pipeline ending
+
+// Notification method
+def notifyBuild(String buildStatus = 'STARTED') {
+    buildStatus = buildStatus ?: 'SUCCESS'
+
+    def colorCode
+    def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
+    def summary = "${subject} (${env.BUILD_URL})"
+
+    switch (buildStatus) {
+        case 'STARTED':
+            colorCode = '#FFFF00' // Yellow
+            break
+        case 'SUCCESS':
+            colorCode = '#00FF00' // Green
+            break
+        default:
+            colorCode = '#FF0000' // Red
+    }
+
+    slackSend(color: colorCode, message: summary)
+}
