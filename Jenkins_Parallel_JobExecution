@@ -19,20 +19,20 @@ notifyBuild('STARTED')
 
           // Stage 2: Maven Build, Sonar scan, and Nexus deploy (Run in parallel)
         stage('Build maven, SQ Report and Upload into Nexus') {
-            steps {
-                parallel (
-                    "Build": {
-                        sh "mvn clean package"  // Run Maven build
-                    },
-                    "Sonar": {
-                        sh "mvn sonar:sonar"  // Run Sonar scan
-                    }
-                    "Nexus": {
-                        sh "mvn clean deploy"  // Run Nexus scan
-                    }
-                )
+    steps {
+        parallel (
+            "Build": {
+                sh "mvn clean package"  // Run Maven build
+            },
+            "Sonar": {
+                sh "mvn sonar:sonar"  // Run Sonar scan
+            },
+            "Nexus": {
+                sh "mvn clean deploy"  // Run Nexus deploy
             }
-        } //stage ending
+        )
+    }
+}//stage ending
 
 // Stage 3: Deply Tomcat
         stage('tomcat deploy')
